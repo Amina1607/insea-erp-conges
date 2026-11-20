@@ -1,0 +1,14 @@
+{
+  "name": "INSEA ERP Congés",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+  "forwardPorts": [8069],
+  "portsAttributes": {
+    "8069": {
+      "label": "Odoo",
+      "onAutoForward": "notify"
+    }
+  }
+}

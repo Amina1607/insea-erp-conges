@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo noupdate="1">
+    <record id="leave_type_short_exit" model="hr.leave.type">
+        <field name="name">Autorisation de sortie INSEA</field>
+        <field name="company_id" eval="False"/>
+        <field name="insea_policy">short_exit</field>
+        <field name="request_unit">hour</field>
+        <field name="requires_allocation">no</field>
+        <field name="leave_validation_type">manager</field>
+        <field name="support_document" eval="True"/>
+    </record>
+    <record id="leave_type_annual" model="hr.leave.type">
+        <field name="name">Congé payé annuel INSEA</field>
+        <field name="company_id" eval="False"/>
+        <field name="insea_policy">annual</field>
+        <field name="request_unit">day</field>
+        <field name="requires_allocation">yes</field>
+        <field name="leave_validation_type">both</field>
+        <field name="support_document" eval="False"/>
+    </record>
+    <record id="leave_type_marriage" model="hr.leave.type">
+        <field name="name">Mariage INSEA</field>
+        <field name="company_id" eval="False"/>
+        <field name="insea_policy">marriage</field>
+        <field name="request_unit">day</field>
+        <field name="requires_allocation">no</field>
+        <field name="leave_validation_type">both</field>
+        <field name="support_document" eval="True"/>
+    </record>
+    <record id="leave_type_birth" model="hr.leave.type">
+        <field name="name">Naissance INSEA</field>
+        <field name="company_id" eval="False"/>
+        <field name="insea_policy">birth</field>
+        <field name="request_unit">day</field>
+        <field name="requires_allocation">no</field>
+        <field name="leave_validation_type">both</field>
+        <field name="support_document" eval="True"/>
+    </record>
+    <record id="leave_type_bereavement" model="hr.leave.type">
+        <field name="name">Décès INSEA</field>
+        <field name="company_id" eval="False"/>
+        <field name="insea_policy">bereavement</field>
+        <field name="request_unit">day</field>
+        <field name="requires_allocation">no</field>
+        <field name="leave_validation_type">both</field>
+        <field name="support_document" eval="True"/>
+    </record>
+    <record id="leave_type_sickness" model="hr.leave.type">
+        <field name="name">Maladie INSEA</field>
+        <field name="company_id" eval="False"/>
+        <field name="insea_policy">sickness</field>
+        <field name="request_unit">day</field>
+        <field name="requires_allocation">no</field>
+        <field name="leave_validation_type">both</field>
+        <field name="support_document" eval="True"/>
+    </record>
+    <record id="annual_accrual_plan" model="hr.leave.accrual.plan">
+        <field name="name">INSEA — 1,5 jour par mois travaillé</field>
+        <field name="time_off_type_id" ref="leave_type_annual"/>
+        <field name="accrued_gain_time">end</field>
+        <field name="is_based_on_worked_time" eval="True"/>
+    </record>
+    <record id="annual_accrual_level" model="hr.leave.accrual.level">
+        <field name="accrual_plan_id" ref="annual_accrual_plan"/>
+        <field name="start_count" eval="0"/>
+        <field name="frequency">monthly</field>
+        <field name="first_day" eval="1"/>
+        <field name="added_value" eval="1.5"/>
+        <field name="added_value_type">day</field>
+        <field name="cap_accrued_time" eval="False"/>
+    </record>
+</odoo>

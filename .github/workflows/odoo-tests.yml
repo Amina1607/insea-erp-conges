@@ -1,0 +1,23 @@
+name: Tests Odoo
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  install-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Installer le module et exécuter les tests
+        shell: bash
+        run: |
+          docker compose run -T --rm odoo odoo -d insea_erp \
+            -i insea_hr_leave_custom --without-demo=all \
+            --test-enable --test-tags=/insea_hr_leave_custom --stop-after-init \
+            2>&1 | tee "${RUNNER_TEMP}/odoo-tests.log"
+          grep -Eq '0 failed, 0 error\(s\) of [1-9][0-9]* tests?' "${RUNNER_TEMP}/odoo-tests.log"

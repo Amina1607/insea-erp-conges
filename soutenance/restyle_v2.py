@@ -142,7 +142,7 @@ for sh in p.slides[3].shapes:
     if v.startswith("Motif obligatoire. Maximum"):
         new = "Motif obligatoire. Le solde annuel reste disponible."
     elif v.startswith("Solde suffisant. Cumul"):
-        new = "Contrôle du solde avant approbation. Le seuil s’exprime en jours travaillés."
+        new = "Solde suffisant. Préavis obligatoire au-delà de 3 jours travaillés."
     elif v.startswith("Préavis 7"):
         new = "Préavis : 7 jours calendaires"
     elif v.startswith("Pièce requise pour"):

@@ -1,0 +1,30 @@
+name: Tests Odoo
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  install-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - name: Installer le module sur une base neuve et démarrer Odoo
+        shell: bash
+        run: |
+          bash scripts/start-odoo.sh
+          curl --retry 12 --retry-delay 2 --retry-all-errors --max-time 10 \
+            -fsSL http://127.0.0.1:8069/web/login -o "${RUNNER_TEMP}/odoo-login.html"
+          grep -q 'name="login"' "${RUNNER_TEMP}/odoo-login.html"
+      - name: Exécuter les tests sur une base isolée
+        shell: bash
+        run: |
+          docker compose run -T --rm odoo odoo -d insea_tests --db-filter='^insea_tests$' \
+            -i insea_hr_leave_custom --without-demo=all \
+            --test-enable --test-tags=/insea_hr_leave_custom --stop-after-init \
+            2>&1 | tee "${RUNNER_TEMP}/odoo-tests.log"
+          grep -Eq '0 failed, 0 error\(s\) of [1-9][0-9]* tests?' "${RUNNER_TEMP}/odoo-tests.log"

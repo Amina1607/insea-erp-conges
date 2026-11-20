@@ -3,6 +3,7 @@ from datetime import timedelta
 from odoo import fields
 from odoo.exceptions import ValidationError
 from odoo.tests import TransactionCase, tagged
+from odoo.tests.common import new_test_user
 
 
 @tagged("post_install", "-at_install")
@@ -91,3 +92,77 @@ class TestInseaLeave(TransactionCase):
         self.assertEqual(plan.level_ids.added_value, 1.5)
         self.assertEqual(self.annual_type.requires_allocation, "yes")
         self.assertFalse(self.annual_type.allows_negative)
+
+    def _allocate(self, days):
+        allocation = self.env["hr.leave.allocation"].create({
+            "name": "Allocation de test",
+            "employee_id": self.employee.id,
+            "holiday_status_id": self.annual_type.id,
+            "number_of_days": days,
+            "date_from": fields.Date.today(),
+        })
+        if allocation.state != "validate":
+            allocation.action_validate()
+        return allocation
+
+    def _annual(self, start, end):
+        return self.env["hr.leave"].create({
+            "employee_id": self.employee.id,
+            "holiday_status_id": self.annual_type.id,
+            "request_date_from": start,
+            "request_date_to": end,
+        })
+
+    def _annual_balance(self, day):
+        return self.annual_type.get_allocation_data(self.employee, day)[self.employee][0][1]
+
+    def test_annual_notice_is_checked_at_submission(self):
+        self._allocate(10)
+        start = fields.Date.today() + timedelta(days=1)
+        while start.weekday() >= 5:
+            start += timedelta(days=1)
+        end = start
+        for _unused in range(3):
+            end += timedelta(days=1)
+            while end.weekday() >= 5:
+                end += timedelta(days=1)
+        leave = self._annual(start, end)
+        self.assertEqual(leave.number_of_days, 4)
+        with self.assertRaisesRegex(ValidationError, "sept jours"), self.cr.savepoint():
+            leave.action_confirm()
+        self.assertEqual(leave.state, "draft")
+
+    def test_annual_balance_exact_and_excess(self):
+        self._allocate(1)
+        self._exit(self.first).action_confirm()
+        day = self.first + timedelta(days=1)
+        self.assertEqual(self._annual_balance(day)["virtual_remaining_leaves"], 1)
+        leave = self._annual(day, day)
+        leave.action_confirm()
+        self.assertEqual(self._annual_balance(day)["virtual_remaining_leaves"], 0)
+        self.assertEqual(self._annual_balance(day)["remaining_leaves"], 1)
+        leave.action_approve()
+        self.assertEqual(leave.state, "validate1")
+        leave.action_validate()
+        self.assertEqual(self._annual_balance(day)["remaining_leaves"], 0)
+        later = day + timedelta(days=1)
+        extra = self._annual(later, later)
+        with self.assertRaises(ValidationError), self.cr.savepoint():
+            extra.action_confirm()
+
+    def test_employee_can_submit_using_native_permissions(self):
+        employee_user = new_test_user(self.env, login="insea-employee", groups="base.group_user")
+        self.employee.user_id = employee_user
+        leave = self.env["hr.leave"].with_user(employee_user).create({
+            "employee_id": self.employee.id,
+            "holiday_status_id": self.exit_type.id,
+            "request_unit_hours": True,
+            "request_date_from": self.first,
+            "request_date_to": self.first,
+            "request_hour_from": "8",
+            "request_hour_to": "10",
+            "insea_exit_reason": "personal",
+        })
+        self.assertEqual(leave.state, "draft")
+        leave.action_confirm()
+        self.assertEqual(leave.state, "confirm")

@@ -153,7 +153,7 @@ txt(s, "Intégration dans Odoo Community 17 pour la société Lambda", .82, 4.43
 txt(s, "Amina Bajdouri  ·  Alaa Belga", .82, 6.34, 11.8, .40, 20, WHITE, True)
 txt(s, "Mini-projet de systèmes intégrés", .82, 6.83, 11.8, .32, 13, "BEE0D5")
 
-s = slide("Pourquoi Lambda avait besoin d’un circuit commun",
+s = slide("Un circuit commun pour la société Lambda",
           "Centraliser la demande, les pièces, les décisions et l’historique dans Odoo.")
 card(s, .65, 1.83, 5.85, 3.48, "Situation de départ",
      "Les demandes circulaient sur papier ou par échanges informels.\n\n"
@@ -182,7 +182,7 @@ card(s, 6.74, 1.64, 5.94, 2.20, "Congé payé annuel",
 card(s, .65, 4.03, 5.88, 2.24, "Justificatifs",
      "Pièce requise pour maladie, événement familial ou sortie médicale. Pour une sortie médicale, PDF ou image.", size=17)
 card(s, 6.74, 4.03, 5.94, 2.24, "Calendrier et intégrité",
-     "Contrôle des chevauchements entre demandes. Les congés familiaux suivent les durées du type d’événement.", size=17)
+     "Chevauchements bloqués. Congés familiaux en jours travaillés : mariage 4, naissance 3, décès 2 ou 3.", size=17)
 
 s = slide("Un module intégré à Odoo Community 17",
           "Architecture de l’environnement de démonstration.")

@@ -41,7 +41,8 @@ jobs:
               print(f'V2RENDER {len(pdf)}')
               for start in range(0, len(pdf), 4):
                   sheet = Image.new('RGB', (900, 510), '#edf0ee')
-                  for offset, page in enumerate(pdf[start:start+4]):
+                  for offset, number in enumerate(range(start, min(start + 4, len(pdf)))):
+                      page = pdf[number]
                       pix = page.get_pixmap(matrix=fitz.Matrix(.50, .50))
                       image = Image.open(BytesIO(pix.tobytes('png'))).convert('RGB')
                       image.thumbnail((446, 251))

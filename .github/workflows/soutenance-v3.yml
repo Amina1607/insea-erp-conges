@@ -1,0 +1,51 @@
+name: PowerPoint V3
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/soutenance-v3.yml'
+      - 'soutenance/restyle_v2.py'
+permissions:
+  contents: read
+jobs:
+  powerpoint:
+    if: github.head_ref == 'soutenance'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Générer le nouveau PowerPoint
+        run: |
+          pip install -q python-pptx pymupdf pillow
+          python soutenance/restyle_v2.py
+      - name: Vérifier le rendu des diapositives
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends libreoffice-impress fonts-crosextra-carlito >/dev/null
+          mkdir -p /tmp/v3-qa
+          libreoffice -env:UserInstallation=file:///tmp/lo-v3 --headless \
+            --convert-to pdf --outdir /tmp/v3-qa dist/Soutenance_INSEA_ERP_v3.pptx
+          python - <<'PY'
+          from base64 import b64encode
+          from io import BytesIO
+          import fitz
+          from PIL import Image
+          with fitz.open('/tmp/v3-qa/Soutenance_INSEA_ERP_v3.pdf') as pdf:
+              assert len(pdf) == 12
+              for group, pages in enumerate(((0, 3, 7, 8), (1, 5, 9, 11))):
+                  sheet = Image.new('RGB', (900, 510), '#efebf3')
+                  for offset, number in enumerate(pages):
+                      pix = pdf[number].get_pixmap(matrix=fitz.Matrix(.5, .5))
+                      image = Image.open(BytesIO(pix.tobytes('png'))).convert('RGB')
+                      image.thumbnail((447, 252))
+                      sheet.paste(image, (450 * (offset % 2), 255 * (offset // 2)))
+                  stream = BytesIO()
+                  sheet.save(stream, 'JPEG', quality=63, optimize=True)
+                  encoded = b64encode(stream.getvalue()).decode()
+                  for j in range(0, len(encoded), 1500):
+                      print(f'V3PREVIEW_{group}_{j}: {encoded[j:j+1500]}')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Soutenance_INSEA_ERP_v3
+          path: dist/Soutenance_INSEA_ERP_v3.pptx
+          if-no-files-found: error

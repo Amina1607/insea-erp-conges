@@ -1,0 +1,40 @@
+name: PowerPoint de soutenance
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/soutenance.yml'
+      - 'soutenance/**'
+permissions:
+  contents: read
+jobs:
+  powerpoint:
+    if: github.head_ref == 'soutenance'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Inventorier les visuels du rapport
+        run: |
+          python - <<'PY'
+          from zipfile import ZipFile
+          import re
+          with ZipFile('Rapport_INSEA_ERP_Conges_LaTeX.zip') as z:
+              for name in z.namelist():
+                  print(name)
+                  if name.lower().endswith('.tex'):
+                      source = z.read(name).decode('utf-8', 'replace')
+                      for line in source.splitlines():
+                          if re.search(r'includegraphics|caption\{|tikzpicture', line):
+                              print('  ' + line.strip())
+          PY
+      - name: Générer et vérifier le PowerPoint
+        if: hashFiles('soutenance/build.py') != ''
+        run: |
+          pip install python-pptx pymupdf pillow
+          python soutenance/build.py
+      - uses: actions/upload-artifact@v4
+        if: hashFiles('dist/Soutenance_INSEA_ERP.pptx') != ''
+        with:
+          name: Soutenance_INSEA_ERP
+          path: dist/Soutenance_INSEA_ERP.pptx
+          if-no-files-found: error

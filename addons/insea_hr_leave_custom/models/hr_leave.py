@@ -116,17 +116,10 @@ class HrLeave(models.Model):
                     % " ou ".join(map(str, durations))
                 )
 
+        managed.employee_id._insea_serialize_requests()
         managed.filtered(lambda leave: leave.insea_policy == "short_exit")._check_insea_exit_quota()
 
     def _check_insea_exit_quota(self):
-        # Odoo utilise des transactions à snapshot. Une écriture sur la même
-        # ligne oblige une soumission concurrente à recommencer sa transaction.
-        for employee_id in sorted(self.employee_id.ids):
-            self.env.cr.execute(
-                "UPDATE hr_employee SET insea_leave_revision = "
-                "NOT COALESCE(insea_leave_revision, FALSE) WHERE id = %s",
-                [employee_id],
-            )
         for leave in self:
             month_start = leave.request_date_from.replace(day=1)
             next_month = (month_start + timedelta(days=32)).replace(day=1)

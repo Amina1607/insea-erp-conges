@@ -1,22 +1,20 @@
 # Démarrer Odoo dans Codespaces
 
-Ouvrir un Codespace depuis le dépôt. Si Codespaces était déjà ouvert avant
-l'ajout de la configuration, exécuter **Codespaces: Rebuild Container**.
+Dans GitHub, sélectionner la branche qui contient le module (`partie-a`
+pendant la revue), puis ouvrir **Code → Codespaces → Create codespace**.
+Si un Codespace existait déjà avant l’ajout de la configuration, exécuter
+**Codespaces: Rebuild Container**.
 
-Initialiser une base de développement neuve et installer le module.
-
-```bash
-docker compose run --rm odoo odoo -d insea_erp \
-  -i insea_hr_leave_custom --without-demo=all --stop-after-init
-docker compose up -d
-```
+Codespaces démarre automatiquement PostgreSQL et Odoo. Au premier démarrage,
+il initialise la base `insea_erp` et installe le module. Pour relancer ce
+démarrage depuis le terminal du Codespace, exécuter `bash scripts/start-odoo.sh`.
 
 Ouvrir le port **8069** dans l’onglet **Ports** et conserver sa visibilité
 privée. Utiliser `admin` comme identifiant et mot de passe de la base locale
 à la première connexion, puis changer le mot de passe. La base et les fichiers
 Odoo restent dans les volumes Docker du Codespace.
 
-Pour mettre à jour le module après une modification du code ou des données.
+Pour mettre à jour le module après avoir récupéré des changements.
 
 ```bash
 docker compose stop odoo

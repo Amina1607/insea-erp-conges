@@ -4,11 +4,14 @@
   "features": {
     "ghcr.io/devcontainers/features/docker-in-docker:2": {}
   },
-  "forwardPorts": [8069],
+  "forwardPorts": [
+    8069
+  ],
   "portsAttributes": {
     "8069": {
       "label": "Odoo",
       "onAutoForward": "notify"
     }
-  }
+  },
+  "postStartCommand": "bash scripts/start-odoo.sh"
 }

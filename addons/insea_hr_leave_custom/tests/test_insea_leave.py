@@ -151,7 +151,8 @@ class TestInseaLeave(TransactionCase):
             extra.action_confirm()
 
     def test_employee_can_submit_using_native_permissions(self):
-        employee_user = new_test_user(self.env, login="insea-employee", groups="base.group_user")
+        user_env = self.env["res.users"].with_context(no_reset_password=True).env
+        employee_user = new_test_user(user_env, login="insea-employee", groups="base.group_user")
         self.employee.user_id = employee_user
         leave = self.env["hr.leave"].with_user(employee_user).create({
             "employee_id": self.employee.id,
@@ -164,5 +165,20 @@ class TestInseaLeave(TransactionCase):
             "insea_exit_reason": "personal",
         })
         self.assertEqual(leave.state, "draft")
+        leave.action_confirm()
+        self.assertEqual(leave.state, "confirm")
+
+    def test_marriage_requires_four_working_days(self):
+        marriage = self.env.ref("insea_hr_leave_custom.leave_type_marriage")
+        leave = self.env["hr.leave"].create({
+            "employee_id": self.employee.id,
+            "holiday_status_id": marriage.id,
+            "request_date_from": self.first,
+            "request_date_to": self.first + timedelta(days=2),
+        })
+        self.assertTrue(leave.insea_needs_attachment)
+        with self.assertRaisesRegex(ValidationError, "Durée autorisée"), self.cr.savepoint():
+            leave.action_confirm()
+        leave.request_date_to = self.first + timedelta(days=3)
         leave.action_confirm()
         self.assertEqual(leave.state, "confirm")

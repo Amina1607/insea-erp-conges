@@ -144,14 +144,30 @@ def figure(slide, name, x, y, w, h, caption=None):
 
 s = slide()
 s.background.fill.fore_color.rgb = color(DARK)
-box(s, 0.78, 0.84, .72, .045, LIME)
-txt(s, "INSEA  /  3ᵉ année DSE  /  2026–2027", .80, 1.04, 11.8, .40, 16, LIME, True)
-txt(s, "Gestion des autorisations\nd’absence et des congés", .76, 1.85, 11.85, 2.05,
-    46, WHITE, True)
-txt(s, "Intégration dans Odoo Community 17 pour la société Lambda", .82, 4.43,
-    11.8, .52, 21, "BEE0D5")
-txt(s, "Amina Bajdouri  ·  Alaa Belga", .82, 6.34, 11.8, .40, 20, WHITE, True)
-txt(s, "Mini-projet de systèmes intégrés", .82, 6.83, 11.8, .32, 13, "BEE0D5")
+box(s, .72, .70, .36, .045, LIME)
+txt(s, "INSEA   /   3ᵉ année DSE   /   2026–2027", 1.19, .58, 7.15, .32, 13, LIME, True)
+
+txt(s, "Gestion des autorisations\nd’absence et des congés", .70, 1.57, 8.55, 2.44,
+    43, WHITE, True)
+txt(s, "Société Lambda", .76, 4.07, 7.88, .52, 24, WHITE, True)
+txt(s, "Intégration dans Odoo Community 17", .76, 4.65, 7.88, .42, 19, "BEE0D5")
+
+box(s, 9.05, 1.31, 3.56, 4.57, "123F39", "396159", rounding=True)
+txt(s, "Circuit d’une demande", 9.32, 1.66, 3.02, .34, 17, WHITE, True)
+box(s, 9.51, 2.52, .021, 2.18, "659286")
+for y, role, action in [
+    (2.31, "Employé", "Saisit et soumet"),
+    (3.42, "Manager", "Examine et décide"),
+    (4.53, "Responsable RH", "Valide si nécessaire"),
+]:
+    box(s, 9.38, y + .03, .27, .27, LIME, rounding=True)
+    txt(s, role, 9.85, y, 2.49, .33, 16, WHITE, True)
+    txt(s, action, 9.85, y + .39, 2.48, .34, 14, "BEE0D5")
+
+box(s, .73, 6.35, 11.89, .014, "396159")
+txt(s, "Amina Bajdouri  ·  Alaa Belga", .76, 6.64, 6.70, .42, 18, WHITE, True)
+txt(s, "Mini-projet de systèmes intégrés", 7.43, 6.71, 5.17, .33,
+    14, "BEE0D5", align=PP_ALIGN.RIGHT)
 
 s = slide("Un circuit commun pour la société Lambda",
           "Centraliser la demande, les pièces, les décisions et l’historique dans Odoo.")

@@ -144,7 +144,7 @@ for sh in p.slides[3].shapes:
     elif v.startswith("Solde suffisant. Cumul"):
         new = "Solde suffisant. Préavis obligatoire au-delà de 3 jours travaillés."
     elif v.startswith("Préavis 7"):
-        new = "Préavis : 7 jours calendaires"
+        new = "Préavis : 7 j calendaires"
     elif v.startswith("Pièce requise pour"):
         new = "Maladie, événement familial et sortie médicale. PDF ou image pour une sortie médicale."
     elif v.startswith("Chevauchements bloqués."):
@@ -184,6 +184,35 @@ for number, regions in plans.items():
     assert len(pictures) == len(regions)
     for shape, region in zip(pictures, regions):
         crop_picture(slide, shape, region)
+
+
+# Layouts and masters also contain theme colors outside the slide XML.
+from lxml import etree
+
+for part in p.part.package.iter_parts():
+    name = str(part.partname)
+    if not (name.startswith(("/ppt/theme/", "/ppt/slideMasters/", "/ppt/slideLayouts/"))
+            and name.endswith(".xml")):
+        continue
+    root = getattr(part, "_element", None)
+    parsed = root is None
+    if parsed:
+        root = etree.fromstring(part.blob)
+    for item in root.iter(qn("a:srgbClr")):
+        value = item.get("val")
+        if value:
+            item.set("val", palette(value))
+    if parsed:
+        part._blob = etree.tostring(root, encoding="UTF-8", xml_declaration=True)
+
+# Replace the inherited green edge and conclusion background explicitly.
+for number, slide in enumerate(p.slides):
+    if number == 0:
+        slide._element.set("showMasterSp", "0")
+        continue
+    slide.background.fill.solid()
+    slide.background.fill.fore_color.rgb = rgb("664194" if number == 11 else BG)
+    block(slide, 0, 0, .20, H, "FFB693" if number == 11 else "DEC7F6")
 
 dst.parent.mkdir(exist_ok=True)
 p.save(dst)

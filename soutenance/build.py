@@ -147,13 +147,13 @@ s.background.fill.fore_color.rgb = color(DARK)
 box(s, .72, .70, .36, .045, LIME)
 txt(s, "INSEA   /   3ᵉ année DSE   /   2026–2027", 1.19, .58, 7.15, .32, 13, LIME, True)
 
-txt(s, "Gestion des autorisations\nd’absence et des congés", .70, 1.57, 8.55, 2.44,
-    43, WHITE, True)
+txt(s, "Gestion des\nautorisations d’absence\net des congés", .70, 1.57, 8.05, 2.44,
+    39, WHITE, True)
 txt(s, "Société Lambda", .76, 4.07, 7.88, .52, 24, WHITE, True)
 txt(s, "Intégration dans Odoo Community 17", .76, 4.65, 7.88, .42, 19, "BEE0D5")
 
 box(s, 9.05, 1.31, 3.56, 4.57, "123F39", "396159", rounding=True)
-txt(s, "Circuit d’une demande", 9.32, 1.66, 3.02, .34, 17, WHITE, True)
+txt(s, "Circuit de validation", 9.32, 1.66, 3.02, .34, 15, WHITE, True)
 box(s, 9.51, 2.52, .021, 2.18, "659286")
 for y, role, action in [
     (2.31, "Employé", "Saisit et soumet"),

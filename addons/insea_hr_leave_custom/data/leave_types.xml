@@ -19,7 +19,7 @@
         <field name="support_document" eval="False"/>
     </record>
     <record id="leave_type_marriage" model="hr.leave.type">
-        <field name="name">Mariage INSEA</field>
+        <field name="name">Mariage</field>
         <field name="company_id" eval="False"/>
         <field name="insea_policy">marriage</field>
         <field name="request_unit">day</field>
@@ -28,7 +28,7 @@
         <field name="support_document" eval="True"/>
     </record>
     <record id="leave_type_birth" model="hr.leave.type">
-        <field name="name">Naissance INSEA</field>
+        <field name="name">Naissance</field>
         <field name="company_id" eval="False"/>
         <field name="insea_policy">birth</field>
         <field name="request_unit">day</field>
@@ -37,7 +37,7 @@
         <field name="support_document" eval="True"/>
     </record>
     <record id="leave_type_bereavement" model="hr.leave.type">
-        <field name="name">Décès INSEA</field>
+        <field name="name">Décès</field>
         <field name="company_id" eval="False"/>
         <field name="insea_policy">bereavement</field>
         <field name="request_unit">day</field>
@@ -46,7 +46,7 @@
         <field name="support_document" eval="True"/>
     </record>
     <record id="leave_type_sickness" model="hr.leave.type">
-        <field name="name">Maladie INSEA</field>
+        <field name="name">Maladie</field>
         <field name="company_id" eval="False"/>
         <field name="insea_policy">sickness</field>
         <field name="request_unit">day</field>

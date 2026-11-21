@@ -1,7 +1,7 @@
 from datetime import timedelta
 
 from odoo import _, api, fields, models
-from odoo.exceptions import ValidationError
+from odoo.exceptions import AccessError, ValidationError
 
 
 PENDING_OR_APPROVED = ("confirm", "validate1", "validate")
@@ -27,6 +27,15 @@ class HrLeave(models.Model):
     insea_needs_attachment = fields.Boolean(
         compute="_compute_insea_needs_attachment", string="Justificatif obligatoire"
     )
+    insea_refusal_reason = fields.Text(
+        string="Motif de refus", copy=False, tracking=True
+    )
+    insea_final_approved = fields.Boolean(
+        string="Approbation finale enregistrée",
+        default=False,
+        copy=False,
+        readonly=True,
+    )
 
     _sql_constraints = [
         (
@@ -42,6 +51,24 @@ class HrLeave(models.Model):
         super()._compute_state()
         for leave in self.filtered("insea_policy"):
             leave.state = "draft"
+
+    @api.depends("state", "employee_id", "insea_policy")
+    def _compute_can_approve(self):
+        super()._compute_can_approve()
+        if self.env.su:
+            return
+        for leave in self.filtered("insea_policy"):
+            if leave.state == "confirm":
+                leave.can_approve = (
+                    bool(leave.employee_id.leave_manager_id)
+                    and leave.employee_id.leave_manager_id == self.env.user
+                )
+            elif leave.state == "validate1":
+                leave.can_approve = self.env.user.has_group(
+                    "hr_holidays.group_hr_holidays_user"
+                )
+            else:
+                leave.can_approve = False
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -73,6 +100,31 @@ class HrLeave(models.Model):
             )
 
     def write(self, vals):
+        if not self.env.su:
+            workflow_fields = {
+                "state", "first_approver_id", "second_approver_id",
+                "meeting_id", "insea_refusal_reason", "active",
+                "attachment_ids", "supported_attachment_ids",
+                "message_main_attachment_id", "insea_final_approved",
+            }
+            submitted = self.filtered(
+                lambda leave: leave.insea_policy and leave.state in PENDING_OR_APPROVED
+            )
+            if submitted and set(vals) - workflow_fields:
+                raise AccessError(_("Une demande soumise ne peut plus être modifiée."))
+            if submitted and "insea_refusal_reason" in vals:
+                for leave in submitted:
+                    is_manager = (
+                        leave.employee_id.leave_manager_id == self.env.user
+                    )
+                    is_hr = self.env.user.has_group(
+                        "hr_holidays.group_hr_holidays_user"
+                    )
+                    if not is_manager and not is_hr:
+                        raise AccessError(
+                            _("Seuls les approbateurs peuvent saisir un motif de refus.")
+                        )
+
         entering_workflow = self.filtered(
             lambda leave: leave.insea_policy and leave.state not in PENDING_OR_APPROVED
         ) if vals.get("state") in PENDING_OR_APPROVED else self.browse()
@@ -88,7 +140,7 @@ class HrLeave(models.Model):
         return result
 
     @api.constrains(
-        "holiday_status_id", "employee_id", "employee_ids", "state", "active",
+        "holiday_status_id", "employee_id", "state", "active",
         "request_date_from", "request_date_to", "request_unit_hours",
         "request_hour_from", "request_hour_to", "insea_exit_reason",
     )
@@ -98,7 +150,8 @@ class HrLeave(models.Model):
             and leave.state in PENDING_OR_APPROVED
         )
         for leave in managed:
-            if leave.holiday_type != "employee" or not leave.employee_id or len(leave.employee_ids) > 1:
+            leave._check_insea_overlap()
+            if leave.holiday_type != "employee" or not leave.employee_id:
                 raise ValidationError(_("Une demande INSEA doit concerner un seul collaborateur."))
             if leave.insea_policy == "short_exit":
                 if not leave.insea_exit_reason:
@@ -123,16 +176,155 @@ class HrLeave(models.Model):
         for leave in self:
             month_start = leave.request_date_from.replace(day=1)
             next_month = (month_start + timedelta(days=32)).replace(day=1)
-            [(count, total_hours)] = self.sudo()._read_group(
-                [
-                    ("employee_id", "=", leave.employee_id.id),
-                    ("insea_policy", "=", "short_exit"),
-                    ("state", "in", PENDING_OR_APPROVED),
-                    ("active", "=", True),
-                    ("request_date_from", ">=", month_start),
-                    ("request_date_from", "<", next_month),
-                ],
-                aggregates=["__count", "insea_exit_hours:sum"],
+            domain = [
+                ("employee_id", "=", leave.employee_id.id),
+                ("insea_policy", "=", "short_exit"),
+                ("state", "in", PENDING_OR_APPROVED),
+                ("active", "=", True),
+                ("id", "!=", leave.id),
+                ("request_date_from", ">=", month_start),
+                ("request_date_from", "<", next_month),
+            ]
+            count = self.sudo().search_count(domain)
+            [(total_hours,)] = self.sudo()._read_group(
+                domain,
+                aggregates=["insea_exit_hours:sum"],
             )
-            if count > 3 or (total_hours or 0) > 8:
-                raise ValidationError(_("Le mois est limité à trois autorisations et huit heures cumulées."))
+            proposed_count = count + 1
+            proposed_hours = (total_hours or 0) + leave.insea_exit_hours
+            if proposed_count > 3:
+                raise ValidationError(_("Le mois est limité à trois autorisations de sortie."))
+            if proposed_hours > 8:
+                raise ValidationError(_("Le mois est limité à huit heures cumulées de sortie."))
+
+    def _check_insea_overlap(self):
+        self.ensure_one()
+        if not self.employee_id or not self.date_from or not self.date_to:
+            return
+        conflicting = self.sudo().search([
+            ("id", "!=", self.id),
+            ("employee_id", "=", self.employee_id.id),
+            ("active", "=", True),
+            ("state", "in", PENDING_OR_APPROVED),
+            ("date_from", "<", self.date_to),
+            ("date_to", ">", self.date_from),
+        ], limit=1)
+        if conflicting:
+            raise ValidationError(
+                _("Cette demande chevauche une autre demande INSEA ou congé en attente ou approuvé.")
+            )
+
+    def _check_insea_submitter(self):
+        if self.env.su:
+            return
+        for leave in self:
+            if leave.employee_id.user_id and leave.employee_id.user_id != self.env.user:
+                raise AccessError(_("Seul le collaborateur concerné peut soumettre sa demande."))
+
+    def _check_insea_manager(self):
+        if self.env.su:
+            return
+        for leave in self:
+            manager = leave.employee_id.leave_manager_id
+            if not manager or manager != self.env.user:
+                raise AccessError(_("Seul le manager direct du collaborateur peut effectuer cette approbation."))
+
+    def _check_insea_hr(self):
+        if self.env.su:
+            return
+        if not self.env.user.has_group("hr_holidays.group_hr_holidays_user"):
+            raise AccessError(_("Seul le Responsable RH peut effectuer cette approbation finale."))
+
+    def _check_insea_support_document(self):
+        for leave in self:
+            if not leave.insea_needs_attachment:
+                continue
+            documents = leave.supported_attachment_ids
+            valid = any(
+                (attachment.mimetype or "").startswith("image/")
+                or (attachment.mimetype or "").lower() == "application/pdf"
+                or (attachment.name or "").lower().endswith(".pdf")
+                or (attachment.name or "").lower().endswith((".png", ".jpg", ".jpeg", ".gif", ".webp"))
+                for attachment in documents
+            )
+            if not valid:
+                raise ValidationError(
+                    _("Un justificatif PDF ou image est obligatoire avant l’approbation finale.")
+                )
+
+    def _get_employees_from_holiday_type(self):
+        employees = self.env["hr.employee"]
+        for leave in self:
+            if leave.holiday_type == "employee" and leave.employee_id:
+                employees |= leave.employee_id
+            else:
+                employees |= super(HrLeave, leave)._get_employees_from_holiday_type()
+        return employees
+
+    def action_confirm(self):
+        self._check_insea_submitter()
+        for leave in self:
+            if leave.state != "draft":
+                raise ValidationError(_("La demande doit être en brouillon pour être soumise."))
+            if leave.insea_policy == "short_exit" and not leave.insea_exit_reason:
+                raise ValidationError(_("Choisis un motif avant de soumettre la demande."))
+            leave._check_insea_request()
+        return super().action_confirm()
+
+    def action_approve(self, check_state=True):
+        for leave in self:
+            if leave.insea_policy:
+                if leave.state != "confirm":
+                    raise ValidationError(_("La demande doit être en attente d’approbation manager."))
+                leave._check_insea_manager()
+        return super().action_approve(check_state=check_state)
+
+    def action_validate(self):
+        for leave in self:
+            if leave.insea_policy:
+                if leave.state == "confirm" and leave.insea_policy == "short_exit":
+                    leave._check_insea_manager()
+                elif leave.state == "validate1":
+                    leave._check_insea_hr()
+                else:
+                    raise ValidationError(_("Cette demande n’est pas à une étape finale d’approbation valide."))
+                leave._check_insea_support_document()
+                if leave.insea_final_approved:
+                    raise ValidationError(_("Cette demande a déjà reçu son approbation finale."))
+        result = super().action_validate()
+        self.filtered("insea_policy").write({"insea_final_approved": True})
+        return result
+
+    def action_refuse(self):
+        for leave in self:
+            if leave.insea_policy:
+                if leave.state not in ("confirm", "validate1"):
+                    raise ValidationError(_("Le refus ne peut être effectué qu’à un niveau d’approbation."))
+                if not leave.insea_refusal_reason or not leave.insea_refusal_reason.strip():
+                    raise ValidationError(_("Un motif de refus est obligatoire."))
+                if leave.state == "confirm":
+                    leave._check_insea_manager()
+                else:
+                    leave._check_insea_hr()
+        result = super().action_refuse()
+        for leave in self.filtered("insea_policy"):
+            if leave.employee_id.user_id:
+                leave.message_post(
+                    partner_ids=[leave.employee_id.user_id.partner_id.id],
+                    body=_(
+                        "Votre demande %(leave)s a été refusée. Motif : %(reason)s",
+                        leave=leave.holiday_status_id.display_name,
+                        reason=leave.insea_refusal_reason,
+                    ),
+                    subtype_xmlid="mail.mt_comment",
+                )
+        return result
+
+    def action_draft(self):
+        if not self.env.su:
+            submitted = self.filtered(
+                lambda leave: leave.insea_policy and leave.state in PENDING_OR_APPROVED
+            )
+            if submitted:
+                raise AccessError(_("Une demande soumise ne peut pas être remise en brouillon."))
+        return super().action_draft()

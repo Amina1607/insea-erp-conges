@@ -275,6 +275,27 @@ class TestInseaLeave(TransactionCase):
         with self.assertRaises(ValidationError), self.cr.savepoint():
             leave.with_user(hr_user).action_validate()
 
+    def test_paid_leave_manager_cannot_perform_final_hr_approval(self):
+        manager_user = self._insea_user(
+            "insea-paid-manager-hr",
+            "base.group_user,hr_holidays.group_hr_holidays_responsible,"
+            "hr_holidays.group_hr_holidays_user",
+        )
+        self.env["hr.employee"].create({
+            "name": "Manager RH payé",
+            "user_id": manager_user.id,
+        })
+        self.employee.leave_manager_id = manager_user
+        self._allocate(10)
+        leave = self._annual(self.first, self.first)
+        leave.action_confirm()
+        leave.with_user(manager_user).action_approve()
+        self.assertEqual(leave.state, "validate1")
+        self.assertFalse(leave.with_user(manager_user).can_approve)
+        with self.assertRaisesRegex(ValidationError, "deux niveaux"):
+            leave.with_user(manager_user).action_validate()
+        self.assertEqual(leave.state, "validate1")
+
     def test_refusal_requires_reason_and_notifies_employee(self):
         manager_user = self._insea_user(
             "insea-refuse-manager",

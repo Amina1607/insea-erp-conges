@@ -66,7 +66,7 @@ class HrLeave(models.Model):
             elif leave.state == "validate1":
                 leave.can_approve = self.env.user.has_group(
                     "hr_holidays.group_hr_holidays_user"
-                )
+                ) and leave.employee_id.leave_manager_id != self.env.user
             else:
                 leave.can_approve = False
 
@@ -234,6 +234,11 @@ class HrLeave(models.Model):
             return
         if not self.env.user.has_group("hr_holidays.group_hr_holidays_user"):
             raise AccessError(_("Seul le Responsable RH peut effectuer cette approbation finale."))
+        for leave in self:
+            if leave.employee_id.leave_manager_id == self.env.user:
+                raise ValidationError(
+                    _("Le manager ne peut pas effectuer les deux niveaux d'approbation.")
+                )
 
     def _check_insea_support_document(self):
         for leave in self:
@@ -249,7 +254,7 @@ class HrLeave(models.Model):
             )
             if not valid:
                 raise ValidationError(
-                    _("Un justificatif PDF ou image est obligatoire avant l’approbation finale.")
+                    _("Un justificatif PDF ou image est obligatoire avant l'approbation finale.")
                 )
 
     def _get_employees_from_holiday_type(self):
@@ -275,7 +280,7 @@ class HrLeave(models.Model):
         for leave in self:
             if leave.insea_policy:
                 if leave.state != "confirm":
-                    raise ValidationError(_("La demande doit être en attente d’approbation manager."))
+                    raise ValidationError(_("La demande doit être en attente d'approbation manager."))
                 leave._check_insea_manager()
         return super().action_approve(check_state=check_state)
 
@@ -299,7 +304,7 @@ class HrLeave(models.Model):
         for leave in self:
             if leave.insea_policy:
                 if leave.state not in ("confirm", "validate1"):
-                    raise ValidationError(_("Le refus ne peut être effectué qu’à un niveau d’approbation."))
+                    raise ValidationError(_("Le refus ne peut être effectué qu'à un niveau d'approbation."))
                 if not leave.insea_refusal_reason or not leave.insea_refusal_reason.strip():
                     raise ValidationError(_("Un motif de refus est obligatoire."))
                 if leave.state == "confirm":

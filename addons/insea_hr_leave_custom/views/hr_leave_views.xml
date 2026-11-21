@@ -10,6 +10,12 @@
                 <field name="insea_exit_reason" invisible="insea_policy != 'short_exit'" readonly="state != 'draft'"/>
                 <field name="insea_needs_attachment" string="Justificatif obligatoire à la validation"
                        invisible="not insea_needs_attachment" readonly="1"/>
+                <field name="supported_attachment_ids" widget="many2many_binary"
+                       string="Pièces justificatives"/>
+                <field name="insea_refusal_reason"
+                       readonly="state not in ('confirm', 'validate1')"
+                       placeholder="Motif obligatoire en cas de refus"/>
+                <field name="insea_final_approved" invisible="1"/>
             </xpath>
             <xpath expr="//header/field[@name='state']" position="attributes">
                 <attribute name="statusbar_visible">draft,confirm,validate1,validate</attribute>

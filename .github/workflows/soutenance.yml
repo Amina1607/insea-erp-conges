@@ -1,0 +1,70 @@
+name: PowerPoint de soutenance
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/soutenance.yml'
+      - 'soutenance/**'
+permissions:
+  contents: read
+jobs:
+  powerpoint:
+    if: github.head_ref == 'soutenance'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Inventorier les visuels du rapport
+        run: |
+          python - <<'PY'
+          from zipfile import ZipFile
+          import re
+          with ZipFile('Rapport_INSEA_ERP_Conges_LaTeX.zip') as z:
+              for name in z.namelist():
+                  print(name)
+                  if name.lower().endswith('.tex'):
+                      source = z.read(name).decode('utf-8', 'replace')
+                      for line in source.splitlines():
+                          if re.search(r'includegraphics|caption\{|tikzpicture', line):
+                              print('  ' + line.strip())
+          PY
+      - name: Générer et vérifier le PowerPoint
+        if: hashFiles('soutenance/build.py') != ''
+        run: |
+          pip install python-pptx pymupdf pillow
+          python soutenance/build.py
+      - name: Rendre les diapositives pour vérifier la mise en page
+        if: hashFiles('dist/Soutenance_INSEA_ERP.pptx') != ''
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends libreoffice-impress fonts-crosextra-carlito >/dev/null
+          mkdir -p /tmp/soutenance-qa
+          libreoffice -env:UserInstallation=file:///tmp/lo-insea --headless \
+            --convert-to pdf --outdir /tmp/soutenance-qa dist/Soutenance_INSEA_ERP.pptx
+          python - <<'PY'
+          from io import BytesIO
+          from base64 import b64encode
+          import fitz
+          from PIL import Image
+          with fitz.open('/tmp/soutenance-qa/Soutenance_INSEA_ERP.pdf') as pdf:
+              assert len(pdf) == 12
+              for start in range(0, 12, 4):
+                  sheet = Image.new('RGB', (720, 410), '#edf0ee')
+                  for i in range(4):
+                      page = pdf[start + i]
+                      assert len(page.get_text()) > 30
+                      pix = page.get_pixmap(matrix=fitz.Matrix(0.42, 0.42))
+                      im = Image.open(BytesIO(pix.tobytes('png'))).convert('RGB')
+                      im.thumbnail((357, 202))
+                      sheet.paste(im, (360 * (i % 2), 205 * (i // 2)))
+                  buf = BytesIO()
+                  sheet.save(buf, 'JPEG', quality=56, optimize=True)
+                  encoded = b64encode(buf.getvalue()).decode()
+                  for offset in range(0, len(encoded), 1500):
+                      print(f'PREVIEW_{start}_{offset}: {encoded[offset:offset+1500]}')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: hashFiles('dist/Soutenance_INSEA_ERP.pptx') != ''
+        with:
+          name: Soutenance_INSEA_ERP
+          path: dist/Soutenance_INSEA_ERP.pptx
+          if-no-files-found: error

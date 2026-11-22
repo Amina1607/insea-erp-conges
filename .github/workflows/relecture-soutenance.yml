@@ -1,0 +1,55 @@
+name: Relecture PowerPoint v2
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/relecture-soutenance.yml'
+permissions:
+  contents: read
+jobs:
+  review:
+    if: github.head_ref == 'soutenance'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: df61f9329856d91dcc2b4c49f04d6715652b2790
+          sparse-checkout: Soutenance_INSEA_ERP_v2.pptx
+          sparse-checkout-cone-mode: false
+      - name: Extraire le contenu et rendre les diapositives
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends libreoffice-impress fonts-crosextra-carlito >/dev/null
+          pip install -q python-pptx pymupdf pillow
+          mkdir -p /tmp/v2-qa
+          libreoffice -env:UserInstallation=file:///tmp/lo-insea-v2 --headless \
+            --convert-to pdf --outdir /tmp/v2-qa Soutenance_INSEA_ERP_v2.pptx
+          python - <<'PY'
+          from base64 import b64encode
+          from io import BytesIO
+          import fitz
+          from PIL import Image
+          from pptx import Presentation
+
+          deck = Presentation('Soutenance_INSEA_ERP_v2.pptx')
+          print(f'V2COUNT {len(deck.slides)}')
+          for index, slide in enumerate(deck.slides, 1):
+              for shape in slide.shapes:
+                  if shape.has_text_frame and shape.text.strip():
+                      print(f'V2TEXT {index}: {shape.text.strip().replace(chr(10), " / ")}')
+          with fitz.open('/tmp/v2-qa/Soutenance_INSEA_ERP_v2.pdf') as pdf:
+              print(f'V2RENDER {len(pdf)}')
+              for start in range(0, len(pdf), 4):
+                  sheet = Image.new('RGB', (900, 510), '#edf0ee')
+                  for offset, number in enumerate(range(start, min(start + 4, len(pdf)))):
+                      page = pdf[number]
+                      pix = page.get_pixmap(matrix=fitz.Matrix(.50, .50))
+                      image = Image.open(BytesIO(pix.tobytes('png'))).convert('RGB')
+                      image.thumbnail((446, 251))
+                      sheet.paste(image, (450 * (offset % 2), 255 * (offset // 2)))
+                  output = BytesIO()
+                  sheet.save(output, 'JPEG', quality=58, optimize=True)
+                  encoded = b64encode(output.getvalue()).decode()
+                  for j in range(0, len(encoded), 1500):
+                      print(f'V2PREVIEW_{start}_{j}: {encoded[j:j+1500]}')
+          PY
